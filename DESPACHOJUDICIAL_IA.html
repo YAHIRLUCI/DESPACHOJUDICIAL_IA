@@ -1,156 +1,52 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Sistema IA Despacho</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <title>LegalTech AI Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .paso { display: none; } .activo { display: block; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    </style>
 </head>
-<body class="bg-gray-100 p-10 font-sans">
-  <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
-    
-    <div id="paso1" class="paso">
-      <h2 class="text-2xl font-bold border-b pb-2 mb-4">Paso 1: Ingesta de Documentos</h2>
-      
-      <div class="grid grid-cols-2 gap-6">
-        <div class="p-4 border rounded bg-gray-50 shadow-sm">
-          <h3 class="font-bold mb-2">Opción A: Pegar texto directo</h3>
-          <textarea id="textoDirecto" class="w-full border p-2 h-24 mb-2 rounded" placeholder="Pega el contrato o demanda aquí..."></textarea>
-          <button onclick="usarTextoDirecto()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 w-full rounded font-semibold transition">Ir a resumir texto</button>
+<body class="bg-slate-950 text-slate-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center text-blue-400">⚖️ LegalTech AI Professional</h1>
+
+        <div id="paso1" class="paso activo glass p-8 rounded-2xl">
+            <h2 class="text-xl font-bold mb-4">Paso 1: Entrada de Datos</h2>
+            <input type="file" id="fileInput" class="w-full mb-4 text-sm file:bg-blue-600 file:px-4 file:py-2 file:rounded-full file:text-white cursor-pointer">
+            <button onclick="subirArchivo()" class="bg-blue-700 w-full py-2 rounded-xl font-bold mb-6">📂 Subir y Continuar</button>
+            <textarea id="textoPegado" class="w-full h-32 bg-slate-900 p-4 rounded-lg mb-4 border border-slate-700" placeholder="O pega aquí tu texto legal..."></textarea>
+            <button onclick="continuarConTexto()" class="bg-emerald-700 w-full py-2 rounded-xl font-bold">📝 Usar texto pegado y continuar</button>
         </div>
 
-        <div class="p-4 border rounded bg-gray-50 shadow-sm">
-          <h3 class="font-bold mb-2">Opción B: Gestionar Archivos</h3>
-          <input type="file" id="fileInput" class="mb-2 w-full border p-1 bg-white rounded">
-          <button onclick="subirArchivo()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 w-full rounded mb-2 font-semibold transition">Subir nuevo archivo</button>
-          <hr class="my-3 border-gray-300">
-          <button onclick="irAPaso(2)" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 w-full rounded font-semibold transition">Buscar en archivos guardados</button>
+        <div id="paso2" class="paso glass p-8 rounded-2xl">
+            <h2 class="text-xl font-bold mb-4">Paso 2: Biblioteca de Documentos</h2>
+            <input type="text" id="busqueda" onkeyup="buscar()" placeholder="Buscar..." class="w-full bg-slate-900 p-3 rounded-lg mb-4 border border-slate-700">
+            <div id="listaResultados" class="h-40 overflow-y-auto mb-4 border border-slate-800 p-2 rounded-lg"></div>
         </div>
-      </div>
+
+        <div id="paso3" class="paso glass p-8 rounded-2xl">
+            <h2 class="text-xl font-bold mb-4">Paso 3: Análisis Jurídico</h2>
+            <textarea id="areaVisualizador" class="w-full h-64 bg-slate-900 p-4 rounded-lg mb-4 border border-slate-700 text-sm"></textarea>
+            <div class="flex gap-4 mb-4">
+                <button onclick="generarResumen('seleccion')" class="flex-1 bg-blue-600 py-3 rounded-xl font-bold">⚡ Resumir Selección</button>
+                <button onclick="generarResumen('completo')" class="flex-1 bg-slate-600 py-3 rounded-xl font-bold">📄 Resumir Todo</button>
+            </div>
+            <div id="resultado" class="bg-slate-900 p-6 rounded-xl border border-slate-700 min-h-[150px]">El resultado aparecerá aquí...</div>
+            <select id="formatoExport" class="w-full mt-4 bg-slate-800 p-2 rounded-lg"><option value="docx">Word (.docx)</option><option value="pdf">PDF (.pdf)</option></select>
+            <button onclick="exportar()" class="mt-4 bg-purple-600 w-full py-2 rounded-lg font-bold">💾 Exportar Documento</button>
+        </div>
     </div>
-
-    <div id="paso2" class="paso hidden">
-      <h2 class="text-2xl font-bold border-b pb-2 mb-4">Paso 2: Buscar Archivo</h2>
-      <button onclick="irAPaso(1)" class="text-sm text-gray-600 hover:text-black mb-2 font-semibold">← Volver al inicio</button>
-      <input type="text" id="busqueda" onkeyup="buscar()" class="border border-gray-300 w-full p-3 rounded shadow-inner" placeholder="Escribe 'demanda', 'pago', etc.">
-      <div id="listaResultados" class="my-4 bg-gray-50 p-2 rounded max-h-48 overflow-y-auto border">
-        <p class="text-gray-400 italic">Los resultados aparecerán aquí...</p>
-      </div>
-    </div>
-
-    <div id="paso3" class="paso hidden">
-      <h2 class="text-2xl font-bold border-b pb-2 mb-4">Paso 3: Resumen y Exportación</h2>
-      <button onclick="irAPaso(1)" class="text-sm text-gray-600 hover:text-black mb-2 font-semibold">← Volver al inicio</button>
-      
-      <p class="font-bold text-gray-700 mb-1">Texto a procesar:</p>
-      <p class="text-sm text-blue-600 mb-2">💡 Consejo: Selecciona con el ratón la parte específica que deseas resumir. Si no seleccionas nada, se resumirá todo.</p>
-      <textarea id="areaTexto" class="w-full border border-gray-300 p-4 mb-4 h-48 rounded shadow-inner"></textarea>
-      
-      <button onclick="generarResumen()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded font-bold w-full shadow-md transition">🤖 Generar Resumen con IA</button>
-      
-      <div id="resultado" class="bg-gray-50 p-4 mt-6 border rounded min-h-[100px] text-gray-800">Aquí aparecerá el resumen...</div>
-      
-      <button onclick="exportar()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 mt-4 rounded font-bold shadow transition">📄 Descargar en Word</button>
-    </div>
-  </div>
-
-  <script>
-    function irAPaso(n) {
-      document.querySelectorAll('.paso').forEach(p => p.classList.add('hidden'));
-      document.getElementById('paso'+n).classList.remove('hidden');
-    }
-
-    function usarTextoDirecto() {
-      const texto = document.getElementById('textoDirecto').value;
-      if(!texto.trim()) return alert("Pega algo de texto primero");
-      document.getElementById('areaTexto').value = texto;
-      irAPaso(3);
-    }
-
-    async function subirArchivo() {
-      const fileInput = document.getElementById('fileInput');
-      if(fileInput.files.length === 0) return alert("Selecciona un archivo primero");
-      
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-      
-      await fetch('http://127.0.0.1:5000/subir', {method: 'POST', body: formData});
-      alert("Archivo guardado. Ahora búscalo en el sistema.");
-      document.getElementById('fileInput').value = ''; 
-      irAPaso(2);
-    }
-
-    async function buscar() {
-      const q = document.getElementById('busqueda').value;
-      if (q.length < 2) return; 
-      
-      const res = await fetch(`http://127.0.0.1:5000/buscar?q=${q}`);
-      const data = await res.json();
-      
-      const div = document.getElementById('listaResultados');
-      if (data.length === 0) {
-        div.innerHTML = "<p class='text-red-500 font-semibold p-2'>No se encontraron documentos.</p>";
-      } else {
-        div.innerHTML = data.map(f => 
-          `<button class="block w-full text-left p-3 hover:bg-blue-100 text-blue-700 border-b transition" onclick="seleccionar('${f.ruta}')">📄 ${f.nombre}</button>`
-        ).join('');
-      }
-    }
-
-    async function seleccionar(ruta) {
-      const res = await fetch(`http://127.0.0.1:5000/leer?ruta=${encodeURIComponent(ruta)}`);
-      const data = await res.json();
-      
-      if(data.error) return alert("Error al leer: " + data.error);
-      
-      document.getElementById('areaTexto').value = data.contenido;
-      irAPaso(3);
-    }
-
-    async function generarResumen() {
-      const area = document.getElementById('areaTexto');
-      let texto = area.value.substring(area.selectionStart, area.selectionEnd);
-
-      if (!texto.trim()) {
-        const confirmar = confirm("No seleccionaste ninguna parte específica. ¿Quieres que la IA resuma TODO el documento?");
-        if (!confirmar) return; 
-        texto = area.value; 
-      }
-
-      if(!texto.trim()) return alert("El documento está vacío.");
-
-      document.getElementById('resultado').innerHTML = "<span class='text-blue-600 font-bold'>⏳ Consultando a la IA... esto puede tardar un poco.</span>";
-      
-      try {
-        const res = await fetch('http://127.0.0.1:5000/resumir', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({texto})
-        });
-        const data = await res.json();
-        document.getElementById('resultado').innerText = data.resumen;
-      } catch(e) {
-        document.getElementById('resultado').innerHTML = "<span class='text-red-600 font-bold'>❌ Error de conexión. Revisa que app.py y LM Studio estén encendidos.</span>";
-      }
-    }
-
-    async function exportar() {
-      const contenido = document.getElementById('resultado').innerText;
-      if(!contenido || contenido.includes("⏳") || contenido.includes("❌") || contenido === "Aquí aparecerá el resumen...") {
-        return alert("Genera un resumen válido primero");
-      }
-      
-      const res = await fetch('http://127.0.0.1:5000/exportar', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({contenido})
-      });
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; 
-      a.download = 'Resumen_Legal.docx'; 
-      a.click();
-    }
-  </script>
+    <script>
+        function irAPaso(n) { document.querySelectorAll('.paso').forEach(p => p.classList.remove('activo')); document.getElementById('paso' + n).classList.add('activo'); }
+        async function subirArchivo() { const f = document.getElementById('fileInput').files[0]; if(!f) return alert("Selecciona archivo"); const d = new FormData(); d.append('file', f); await fetch('http://127.0.0.1:5000/subir', {method: 'POST', body: d}); alert("✅ Subido"); irAPaso(2); }
+        function continuarConTexto() { document.getElementById('areaVisualizador').value = document.getElementById('textoPegado').value; irAPaso(3); }
+        async function buscar() { const q = document.getElementById('busqueda').value; if (q.length < 2) return; const res = await fetch(`http://127.0.0.1:5000/buscar?q=${q}`); const data = await res.json(); document.getElementById('listaResultados').innerHTML = data.map(f => `<button class="block w-full p-2 text-left hover:bg-slate-700" onclick="seleccionar('${f.ruta}')">📄 ${f.nombre}</button>`).join(''); }
+        async function seleccionar(ruta) { const res = await fetch(`http://127.0.0.1:5000/leer?ruta=${encodeURIComponent(ruta)}`); const data = await res.json(); document.getElementById('areaVisualizador').value = data.contenido; irAPaso(3); }
+        async function generarResumen(m) { const area = document.getElementById('areaVisualizador'); const t = (m === 'seleccion') ? area.value.substring(area.selectionStart, area.selectionEnd) : area.value; if(!t.trim()) return alert("No hay texto"); document.getElementById('resultado').innerText = "🤖 Analizando..."; const res = await fetch('http://127.0.0.1:5000/resumir', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({texto: t})}); const data = await res.json(); document.getElementById('resultado').innerText = data.resumen; }
+        async function exportar() { const cont = document.getElementById('resultado').innerText; const form = document.getElementById('formatoExport').value; const res = await fetch('http://127.0.0.1:5000/exportar', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({contenido: cont, formato: form})}); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `Resumen_Legal.${form}`; a.click(); }
+    </script>
 </body>
 </html>
