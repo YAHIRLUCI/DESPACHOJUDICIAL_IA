@@ -13,18 +13,33 @@ from PIL import Image
 app = Flask(__name__)
 CORS(app)
 
-# Ajusta esta ruta si usas Tesseract OCR en Windows
+# Ajusta esta ruta si instalaste Tesseract en otro lado
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 DOCS_DIR = './documentos'
 if not os.path.exists(DOCS_DIR): os.makedirs(DOCS_DIR)
 
 def extraer_texto(ruta):
-    """Lee el documento de forma segura según su extensión."""
+    """Lee el documento de forma segura. Aplica OCR si es un PDF escaneado."""
     try:
         if ruta.lower().endswith('.pdf'):
             doc = fitz.open(ruta)
-            texto = "\n".join([p.get_text() for p in doc])
+            # Intentar extraer texto digital primero
+            texto = "\n".join([page.get_text() for page in doc])
+            
+            # Si el texto digital está vacío (es un escaneo), usamos OCR
+            if not texto.strip():
+                print(f"Aplicando OCR a documento escaneado: {ruta}")
+                texto_ocr = []
+                for page in doc:
+                    # Convertir página a imagen de buena calidad
+                    pix = page.get_pixmap(dpi=200) 
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    # Extraer texto de la imagen
+                    texto_ocr.append(pytesseract.image_to_string(img, lang='spa')) # lang='spa' para español
+                texto = "\n".join(texto_ocr)
+                
             return texto
+            
         elif ruta.lower().endswith('.docx'):
             doc = Document(ruta)
             texto = "\n".join([para.text for para in doc.paragraphs])
