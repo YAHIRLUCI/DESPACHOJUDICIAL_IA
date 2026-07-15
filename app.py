@@ -13,10 +13,28 @@ from PIL import Image
 app = Flask(__name__)
 CORS(app)
 
-# Asegúrate de que las rutas a Tesseract y Poppler sean correctas en tu equipo
+# Ajusta esta ruta si usas Tesseract OCR en Windows
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 DOCS_DIR = './documentos'
 if not os.path.exists(DOCS_DIR): os.makedirs(DOCS_DIR)
+
+def extraer_texto(ruta):
+    """Lee el documento de forma segura según su extensión."""
+    try:
+        if ruta.lower().endswith('.pdf'):
+            doc = fitz.open(ruta)
+            texto = "\n".join([p.get_text() for p in doc])
+            return texto
+        elif ruta.lower().endswith('.docx'):
+            doc = Document(ruta)
+            texto = "\n".join([para.text for para in doc.paragraphs])
+            return texto
+        else:
+            with open(ruta, 'r', encoding='utf-8', errors='ignore') as f: 
+                return f.read()
+    except Exception as e:
+        print(f"Error leyendo {ruta}: {e}")
+        return ""
 
 @app.route('/subir', methods=['POST'])
 def subir():
@@ -27,19 +45,50 @@ def subir():
 @app.route('/buscar', methods=['GET'])
 def buscar():
     q = request.args.get('q', '').lower()
-    return jsonify([{"nombre": f, "ruta": f} for f in os.listdir(DOCS_DIR) if q in f.lower()])
+    resultados = []
+    
+    for f in os.listdir(DOCS_DIR):
+        ruta = os.path.join(DOCS_DIR, f)
+        texto_original = extraer_texto(ruta)
+        texto_lower = texto_original.lower()
+        
+        if q in f.lower() or q in texto_lower:
+            texto_limpio = texto_original.replace('\n', ' ').strip()
+            extracto = texto_limpio[:150] + "..." if texto_limpio else "Documento sin texto extraíble."
+                
+            resultados.append({
+                "nombre": f,
+                "ruta": f,
+                "extracto": extracto
+            })
+            
+    return jsonify(resultados)
+
+@app.route('/sinopsis_ia', methods=['POST'])
+def sinopsis_ia():
+    ruta_archivo = os.path.join(DOCS_DIR, request.json.get('ruta'))
+    texto = extraer_texto(ruta_archivo)
+    
+    if not texto.strip():
+        return jsonify({"sinopsis": "No se pudo extraer texto suficiente de este documento."})
+    
+    prompt = f"Eres un asistente legal. Escribe una sinopsis muy breve (máximo 3 líneas) explicando de qué trata exclusivamente este documento:\n\n{texto[:2500]}"
+    try:
+        res = requests.post("http://localhost:1234/v1/chat/completions", json={
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3, "max_tokens": 150
+        })
+        return jsonify({"sinopsis": res.json()['choices'][0]['message']['content']})
+    except Exception as e: 
+        return jsonify({"sinopsis": f"Error de conexión con LM Studio: {str(e)}"})
 
 @app.route('/leer', methods=['GET'])
 def leer():
     ruta = os.path.join(DOCS_DIR, request.args.get('ruta'))
-    try:
-        if ruta.lower().endswith('.pdf'):
-            doc = fitz.open(ruta)
-            texto = "\n".join([p.get_text() for p in doc])
-        else:
-            with open(ruta, 'r', encoding='utf-8') as f: texto = f.read()
+    texto = extraer_texto(ruta)
+    if texto.strip(): 
         return jsonify({"contenido": texto})
-    except Exception as e: return jsonify({"error": str(e)})
+    return jsonify({"error": "No se pudo extraer texto o el archivo está vacío."})
 
 @app.route('/resumir', methods=['POST'])
 def resumir():
@@ -51,7 +100,8 @@ def resumir():
             "temperature": 0.2, "max_tokens": 800
         })
         return jsonify({"resumen": res.json()['choices'][0]['message']['content']})
-    except Exception as e: return jsonify({"resumen": f"Error: {str(e)}"})
+    except Exception as e: 
+        return jsonify({"resumen": f"Error: {str(e)}"})
 
 @app.route('/exportar', methods=['POST'])
 def exportar():
@@ -81,4 +131,5 @@ def exportar():
         buffer.seek(0)
         return send_file(buffer, mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document', as_attachment=True, download_name='Resumen_Legal.docx')
 
-if __name__ == '__main__': app.run(port=5000)
+if __name__ == '__main__': 
+    app.run(port=5000)

@@ -7,12 +7,14 @@
     <style>
         .paso { display: none; } .activo { display: block; }
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .sinopsis-box { display: none; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 p-8">
     <div class="max-w-4xl mx-auto">
         <h1 class="text-3xl font-bold mb-8 text-center text-blue-400">⚖️ LegalTech AI Professional</h1>
 
+        <!-- Paso 1 -->
         <div id="paso1" class="paso activo glass p-8 rounded-2xl">
             <h2 class="text-xl font-bold mb-4">Paso 1: Entrada de Datos</h2>
             <input type="file" id="fileInput" class="w-full mb-4 text-sm file:bg-blue-600 file:px-4 file:py-2 file:rounded-full file:text-white cursor-pointer">
@@ -21,12 +23,22 @@
             <button onclick="continuarConTexto()" class="bg-emerald-700 w-full py-2 rounded-xl font-bold">📝 Usar texto pegado y continuar</button>
         </div>
 
+        <!-- Paso 2 -->
         <div id="paso2" class="paso glass p-8 rounded-2xl">
-            <h2 class="text-xl font-bold mb-4">Paso 2: Biblioteca de Documentos</h2>
-            <input type="text" id="busqueda" onkeyup="buscar()" placeholder="Buscar..." class="w-full bg-slate-900 p-3 rounded-lg mb-4 border border-slate-700">
-            <div id="listaResultados" class="h-40 overflow-y-auto mb-4 border border-slate-800 p-2 rounded-lg"></div>
+            <h2 class="text-xl font-bold mb-4">Paso 2: Explorador Profundo de Documentos</h2>
+            <p class="text-sm text-slate-400 mb-4">Busca por nombre o contenido (ej. "demanda", "pago")</p>
+            
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="busqueda" onkeypress="verificarEnter(event)" placeholder="Ingresa palabra clave..." class="flex-1 bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <button onclick="buscar()" class="bg-blue-600 px-6 rounded-lg font-bold hover:bg-blue-500">🔍 Buscar</button>
+            </div>
+            
+            <div id="listaResultados" class="h-80 overflow-y-auto mb-4 border border-slate-800 p-2 rounded-lg bg-slate-900/50">
+                <p class="text-slate-500 text-center mt-4">Los resultados aparecerán aquí...</p>
+            </div>
         </div>
 
+        <!-- Paso 3 -->
         <div id="paso3" class="paso glass p-8 rounded-2xl">
             <h2 class="text-xl font-bold mb-4">Paso 3: Análisis Jurídico</h2>
             <textarea id="areaVisualizador" class="w-full h-64 bg-slate-900 p-4 rounded-lg mb-4 border border-slate-700 text-sm"></textarea>
@@ -39,13 +51,80 @@
             <button onclick="exportar()" class="mt-4 bg-purple-600 w-full py-2 rounded-lg font-bold">💾 Exportar Documento</button>
         </div>
     </div>
+    
     <script>
         function irAPaso(n) { document.querySelectorAll('.paso').forEach(p => p.classList.remove('activo')); document.getElementById('paso' + n).classList.add('activo'); }
         async function subirArchivo() { const f = document.getElementById('fileInput').files[0]; if(!f) return alert("Selecciona archivo"); const d = new FormData(); d.append('file', f); await fetch('http://127.0.0.1:5000/subir', {method: 'POST', body: d}); alert("✅ Subido"); irAPaso(2); }
         function continuarConTexto() { document.getElementById('areaVisualizador').value = document.getElementById('textoPegado').value; irAPaso(3); }
-        async function buscar() { const q = document.getElementById('busqueda').value; if (q.length < 2) return; const res = await fetch(`http://127.0.0.1:5000/buscar?q=${q}`); const data = await res.json(); document.getElementById('listaResultados').innerHTML = data.map(f => `<button class="block w-full p-2 text-left hover:bg-slate-700" onclick="seleccionar('${f.ruta}')">📄 ${f.nombre}</button>`).join(''); }
-        async function seleccionar(ruta) { const res = await fetch(`http://127.0.0.1:5000/leer?ruta=${encodeURIComponent(ruta)}`); const data = await res.json(); document.getElementById('areaVisualizador').value = data.contenido; irAPaso(3); }
-        async function generarResumen(m) { const area = document.getElementById('areaVisualizador'); const t = (m === 'seleccion') ? area.value.substring(area.selectionStart, area.selectionEnd) : area.value; if(!t.trim()) return alert("No hay texto"); document.getElementById('resultado').innerText = "🤖 Analizando..."; const res = await fetch('http://127.0.0.1:5000/resumir', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({texto: t})}); const data = await res.json(); document.getElementById('resultado').innerText = data.resumen; }
+        function verificarEnter(e) { if(e.key === 'Enter') buscar(); }
+
+        async function buscar() { 
+            const q = document.getElementById('busqueda').value; 
+            if (q.length < 2) return alert("Ingresa al menos 2 letras para buscar.");
+            
+            const lista = document.getElementById('listaResultados');
+            lista.innerHTML = `<p class="text-blue-400 text-center mt-4">⏳ Buscando en los documentos...</p>`;
+            
+            try {
+                const res = await fetch(`http://127.0.0.1:5000/buscar?q=${q}`); 
+                const data = await res.json(); 
+                
+                if(data.length === 0) {
+                    lista.innerHTML = `<p class="text-slate-400 text-center mt-4">No se encontraron documentos.</p>`;
+                    return;
+                }
+
+                lista.innerHTML = data.map(f => {
+                    const idCaja = f.nombre.replace(/[^a-zA-Z0-9]/g, '');
+                    const extractoSeguro = f.extracto ? f.extracto : "Sin vista previa disponible.";
+                    return `
+                    <div class="mb-4 p-4 bg-slate-800 rounded-xl border border-slate-700">
+                        <div class="text-blue-400 font-bold text-lg mb-1">📄 ${f.nombre}</div>
+                        <div class="text-sm text-slate-400 mb-3 italic">"${extractoSeguro}"</div>
+                        
+                        <div id="sinopsis-${idCaja}" class="sinopsis-box bg-slate-900 p-3 rounded-lg mb-3 text-sm text-emerald-400 border border-emerald-900"></div>
+                        
+                        <div class="flex gap-2">
+                            <button onclick="pedirSinopsisIA('${f.ruta}', '${idCaja}')" class="bg-purple-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-500 transition">🤖 ¿De qué trata? (IA)</button>
+                            <button onclick="seleccionar('${f.ruta}')" class="bg-blue-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-500 transition">📖 Leer y Analizar</button>
+                        </div>
+                    </div>
+                `}).join(''); 
+            } catch (error) {
+                lista.innerHTML = `<p class="text-red-400 text-center mt-4">Error de conexión con el servidor local.</p>`;
+            }
+        }
+
+        async function pedirSinopsisIA(ruta, idCaja) {
+            const caja = document.getElementById(`sinopsis-${idCaja}`);
+            caja.style.display = 'block';
+            caja.innerHTML = "⏳ <i>La IA está analizando el documento...</i>";
+            
+            try {
+                const res = await fetch('http://127.0.0.1:5000/sinopsis_ia', {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ruta: ruta})
+                });
+                const data = await res.json();
+                caja.innerHTML = `<strong>Sinopsis IA:</strong> ${data.sinopsis || 'Error al procesar el resumen.'}`;
+            } catch (e) {
+                caja.innerHTML = `<span class="text-red-400">Error al conectar con el servidor local Flask.</span>`;
+            }
+        }
+
+        async function seleccionar(ruta) { 
+            try {
+                const res = await fetch(`http://127.0.0.1:5000/leer?ruta=${encodeURIComponent(ruta)}`); 
+                const data = await res.json(); 
+                document.getElementById('areaVisualizador').value = data.contenido || `Error: ${data.error || 'No se pudo leer el archivo.'}`;
+                irAPaso(3); 
+            } catch (e) {
+                alert("Error al cargar el archivo en el panel de lectura.");
+            }
+        }
+        
+        async function generarResumen(m) { const area = document.getElementById('areaVisualizador'); const t = (m === 'seleccion') ? area.value.substring(area.selectionStart, area.selectionEnd) : area.value; if(!t.trim()) return alert("No hay texto"); document.getElementById('resultado').innerText = "🤖 Redactando..."; const res = await fetch('http://127.0.0.1:5000/resumir', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({texto: t})}); const data = await res.json(); document.getElementById('resultado').innerText = data.resumen; }
         async function exportar() { const cont = document.getElementById('resultado').innerText; const form = document.getElementById('formatoExport').value; const res = await fetch('http://127.0.0.1:5000/exportar', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({contenido: cont, formato: form})}); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `Resumen_Legal.${form}`; a.click(); }
     </script>
 </body>
